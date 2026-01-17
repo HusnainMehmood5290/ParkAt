@@ -25,17 +25,16 @@ const RegisterSp = ({ route }) => {
     try {
       setIsLoading(true);
 
-      // Get the document file from values
       const documentFile = values.document;
 
-      // Create a storage reference
+      const response = await fetch(documentFile.uri);
+      const blob = await response.blob();
+
       const storage = getStorage();
       const storageRef = ref(storage, `documents/${documentFile.name}`);
 
-      // Upload the file to Firebase Storage
-      await uploadBytes(storageRef, documentFile);
+      await uploadBytes(storageRef, blob);
 
-      // Get the download URL of the uploaded file
       const downloadURL = await getDownloadURL(storageRef);
 
       // Prepare the space data with the document URL
@@ -70,17 +69,12 @@ const RegisterSp = ({ route }) => {
           isCompleteProfile: true,
           registerType: updatedRegisterType,
         });
-
-        console.log(`User data updated for ID: ${route.params}`);
-      } else {
-        console.log("No such document!");
       }
 
-      console.log(`Space data stored with ID: ${docRef.id}`);
       setIsLoading(false);
       navigation.navigate("Login");
     } catch (error) {
-      console.log("ERROR STORING SPACE: " + error.message);
+      Alert.alert("Error", "Failed to register space. Please try again.");
       setIsLoading(false);
     }
   };
@@ -100,7 +94,6 @@ const RegisterSp = ({ route }) => {
     setCurrentLocation(location);
     setFieldValue("location", "Done");
     setLocationIcon(LocationIconGreen);
-    console.log(location);
   };
 
   return (

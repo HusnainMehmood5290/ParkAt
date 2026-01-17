@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, View, Text, TextInput } from "react-native";
+import { StyleSheet, View, Text, TextInput, Alert } from "react-native";
 import IconInputField from "../components/IconInputField";
 import Spinner from "../components/Spinner";
 import DimensionInputContainer from "../components/DimensionInput"; // Import updated component
@@ -27,19 +27,17 @@ const RegisterVo = ({ route }) => {
   const RegisterVehicle = async (values) => {
     try {
       setIsLoading(true);
-      console.log(route.params);
 
-      // Get the document file from values
       const documentFile = values.document;
 
-      // Create a storage reference
+      const response = await fetch(documentFile.uri);
+      const blob = await response.blob();
+
       const storage = getStorage();
       const storageRef = ref(storage, `vehicleDocuments/${documentFile.name}`);
 
-      // Upload the file to Firebase Storage
-      await uploadBytes(storageRef, documentFile);
+      await uploadBytes(storageRef, blob);
 
-      // Get the download URL of the uploaded file
       const downloadURL = await getDownloadURL(storageRef);
 
       // Prepare the vehicles data with the document URL
@@ -84,14 +82,11 @@ const RegisterVo = ({ route }) => {
           });
         }
 
-        console.log(`User data updated for ID: ${route.params}`);
-
-        console.log(`Vehicle data stored with ID: ${docRef.id}`);
         setIsLoading(false);
         navigation.navigate("Login");
       }
     } catch (error) {
-      console.log("ERROR STORING VEHICLE: " + error.message);
+      Alert.alert("Error", "Failed to register vehicle. Please try again.");
       setIsLoading(false);
     }
   };

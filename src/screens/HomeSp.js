@@ -67,7 +67,7 @@ const HomeSp = () => {
           <Text style={styles.boxText}>5</Text>
         </View>
         <View
-          style={[styles.box, { backgroundColor: "#rgba(240, 106, 106, 1)" }]}
+          style={[styles.box, { backgroundColor: "rgba(240, 106, 106, 1)" }]}
         >
           <Text style={styles.boxText}>Earnings</Text>
           <Text style={styles.boxText}>12345 PKR</Text>
@@ -79,7 +79,7 @@ const HomeSp = () => {
           <Text style={styles.boxText}>3</Text>
         </View>
         <View
-          style={[styles.box, { backgroundColor: "#rgba(240, 106, 106, 1)" }]}
+          style={[styles.box, { backgroundColor: "rgba(240, 106, 106, 1)" }]}
         >
           <Text style={styles.boxText}>Today's Parking</Text>
           <Text style={styles.boxText}>0</Text>

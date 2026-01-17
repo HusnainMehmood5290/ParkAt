@@ -5,6 +5,26 @@ import { getFirestore } from "firebase/firestore";
 import { initializeAuth, getReactNativePersistence } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+const requiredEnvVars = [
+  'EXPO_PUBLIC_FIREBASE_apiKey',
+  'EXPO_PUBLIC_FIREBASE_authDomain',
+  'EXPO_PUBLIC_FIREBASE_projectId',
+  'EXPO_PUBLIC_FIREBASE_storageBucket',
+  'EXPO_PUBLIC_FIREBASE_messagingSenderId',
+  'EXPO_PUBLIC_FIREBASE_appId',
+];
+
+const missingEnvVars = requiredEnvVars.filter(
+  (varName) => !process.env[varName]
+);
+
+if (missingEnvVars.length > 0) {
+  throw new Error(
+    `Missing required Firebase environment variables: ${missingEnvVars.join(', ')}\n` +
+    'Please configure them in your .env file.'
+  );
+}
+
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_apiKey,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_authDomain,

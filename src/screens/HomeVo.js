@@ -39,7 +39,6 @@ const HomeVo = () => {
     let location = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Highest,
     });
-    console.log(location);
     setCurrentLocation({
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,

@@ -8,7 +8,6 @@ import { doc, getDoc } from "firebase/firestore";
 import { useNavigation } from "@react-navigation/native";
 import ErrorText from "../components/ErrorText";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { set } from "firebase/database";
 
 const Login = () => {
   const navigation = useNavigation();
@@ -44,7 +43,6 @@ const Login = () => {
             ["isVehicleOwner", JSON.stringify(isVehicleOwner)],
             ["isSpaceProvider", JSON.stringify(isSpaceProvider)],
           ]);
-          // console.log(userData.registerType);
         }
 
         let routeName = "Registration";
@@ -56,7 +54,6 @@ const Login = () => {
         navigation.navigate(routeName);
       }
     } catch (error) {
-      console.log(error.message);
       setIsLoading(false);
       setEmailError(
         error.message.includes("auth/invalid-credential") ||
