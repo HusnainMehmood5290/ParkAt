@@ -11,7 +11,6 @@ const PopUpRating = ({ isVisible, onClose }) => {
   };
 
   const handleSubmit = () => {
-    console.log("Selected stars:", selectedStars);
     onClose();
   };
 

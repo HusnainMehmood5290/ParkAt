@@ -3,10 +3,9 @@ import { View, Text, StyleSheet, ScrollView } from "react-native";
 import CardView from "../components/CardViewNearByPark";
 import { useNavigation } from "@react-navigation/native";
 import PopUpVehicleRequest from "../components/PopUpVehicleRequest";
-import { fireStoreDb } from "../configs/firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import { supabase } from "../configs/supabaseConfig";
 import * as Location from "expo-location";
-import { getDistance, getPreciseDistance } from "geolib";
+import { getDistance } from "geolib";
 
 export default function ParkingSpots() {
   const navigation = useNavigation();
@@ -18,7 +17,6 @@ export default function ParkingSpots() {
     const fetchUserLocation = async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        console.error("Permission to access location was denied");
         return;
       }
 
@@ -27,24 +25,29 @@ export default function ParkingSpots() {
     };
 
     const fetchSpacesData = async () => {
-      const spacesCollection = collection(fireStoreDb, "spaces");
-      const spacesSnapshot = await getDocs(spacesCollection);
-      const spacesList = spacesSnapshot.docs.map((doc) => {
-        const data = doc.data();
+      const { data: spaces, error } = await supabase
+        .from('spaces')
+        .select('*');
+
+      if (error) {
+        return;
+      }
+
+      const spacesList = spaces.map((space) => {
         return {
-          ...data,
-          distance: userLocation
+          ...space,
+          distance: userLocation && space.location
             ? getDistance(
                 {
                   latitude: userLocation.latitude,
                   longitude: userLocation.longitude,
                 },
                 {
-                  latitude: data.location.coords.latitude,
-                  longitude: data.location.coords.longitude,
+                  latitude: space.location.coords.latitude,
+                  longitude: space.location.coords.longitude,
                 }
               ) / 1000
-            : 0, // distance in km
+            : 0,
         };
       });
       setSpacesData(spacesList);
@@ -64,7 +67,6 @@ export default function ParkingSpots() {
 
   const onPressHandler = (id) => {
     setModalVisible(true);
-    console.log(id);
     setTimeout(() => navigation.navigate("Direction"), 2000);
   };
 
@@ -84,7 +86,7 @@ export default function ParkingSpots() {
             name={space.ownerName}
             time={`${calculateTime(space.distance)} hours`}
             rating={3}
-            onPress={() => onPressHandler(space._ownerId)}
+            onPress={() => onPressHandler(space.ownerId)}
           />
         ))}
         <PopUpVehicleRequest

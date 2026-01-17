@@ -7,18 +7,7 @@ import DocumentUploadContainer from "../components/DocumentUploadContainer";
 import { useNavigation } from "@react-navigation/native";
 import { Formik } from "formik";
 import validationSchema from "../constraints/YupRegisterVoSchema";
-import { fireStoreDb } from "../configs/firebaseConfig";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-  getDoc,
-  updateDoc,
-  doc,
-} from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { supabase } from "../configs/supabaseConfig";
 
 const RegisterVo = ({ route }) => {
   const navigation = useNavigation();
@@ -29,62 +18,76 @@ const RegisterVo = ({ route }) => {
       setIsLoading(true);
 
       const documentFile = values.document;
+      const fileExt = documentFile.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `vehicleDocuments/${fileName}`;
 
       const response = await fetch(documentFile.uri);
       const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
 
-      const storage = getStorage();
-      const storageRef = ref(storage, `vehicleDocuments/${documentFile.name}`);
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, arrayBuffer, {
+          contentType: documentFile.mimeType || 'application/pdf',
+        });
 
-      await uploadBytes(storageRef, blob);
+      if (uploadError) throw uploadError;
 
-      const downloadURL = await getDownloadURL(storageRef);
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
 
-      // Prepare the vehicles data with the document URL
       const vehiclesData = {
-        _ownerId: route.params,
+        ownerId: route.params,
         vehicleNumber: values.vehicleNumber,
         length: values.length,
         width: values.width,
         height: values.height,
-        document: downloadURL, // Store the URL of the uploaded document
+        document: publicUrl,
       };
 
-      const vehiclesCollection = collection(fireStoreDb, "vehicles");
-      const q = query(
-        vehiclesCollection,
-        where("vehicleNumber", "==", vehiclesData.vehicleNumber)
-      );
-      const querySnapshot = await getDocs(q);
+      const { data: existing, error: checkError } = await supabase
+        .from('vehicles')
+        .select('id')
+        .eq('vehicleNumber', vehiclesData.vehicleNumber)
+        .maybeSingle();
 
-      if (!querySnapshot.empty) {
-        alert("Error: Vehicle with this number already exists.");
+      if (existing) {
+        Alert.alert("Error", "Vehicle with this number already exists.");
         setIsLoading(false);
-      } else {
-        const docRef = await addDoc(vehiclesCollection, vehiclesData);
+        return;
+      }
 
-        const userRef = doc(fireStoreDb, "users", route.params);
+      const { error: insertError } = await supabase
+        .from('vehicles')
+        .insert([vehiclesData]);
 
-        // Fetch the current user document
-        const userDoc = await getDoc(userRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
+      if (insertError) throw insertError;
 
-          // Update the registerType object while preserving existing fields
-          const updatedRegisterType = {
-            ...userData.registerType,
-            vehicleowner: true, // Update vehicleowner field
-          };
+      const { data: userData, error: getUserError } = await supabase
+        .from('users')
+        .select('registerType')
+        .eq('id', route.params)
+        .single();
 
-          await updateDoc(userRef, {
+      if (!getUserError && userData) {
+        const updatedRegisterType = {
+          ...userData.registerType,
+          vehicleowner: true,
+        };
+
+        await supabase
+          .from('users')
+          .update({
             isCompleteProfile: true,
             registerType: updatedRegisterType,
-          });
-        }
-
-        setIsLoading(false);
-        navigation.navigate("Login");
+          })
+          .eq('id', route.params);
       }
+
+      setIsLoading(false);
+      navigation.navigate("Login");
     } catch (error) {
       Alert.alert("Error", "Failed to register vehicle. Please try again.");
       setIsLoading(false);

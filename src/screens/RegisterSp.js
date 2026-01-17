@@ -11,9 +11,7 @@ import IconButton from "../components/IconButton";
 import * as Location from "expo-location";
 import LocationIconBlack from "../../assets/mapIcon.png";
 import LocationIconGreen from "../../assets/greenLocation.png";
-import { fireStoreDb } from "../configs/firebaseConfig";
-import { collection, getDoc, addDoc, updateDoc, doc } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { supabase } from "../configs/supabaseConfig";
 
 const RegisterSp = ({ route }) => {
   const navigation = useNavigation();
@@ -26,49 +24,61 @@ const RegisterSp = ({ route }) => {
       setIsLoading(true);
 
       const documentFile = values.document;
+      const fileExt = documentFile.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `spaceDocuments/${fileName}`;
 
       const response = await fetch(documentFile.uri);
       const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
 
-      const storage = getStorage();
-      const storageRef = ref(storage, `documents/${documentFile.name}`);
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, arrayBuffer, {
+          contentType: documentFile.mimeType || 'application/pdf',
+        });
 
-      await uploadBytes(storageRef, blob);
+      if (uploadError) throw uploadError;
 
-      const downloadURL = await getDownloadURL(storageRef);
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
 
-      // Prepare the space data with the document URL
       const spaceData = {
-        _ownerId: route.params,
+        ownerId: route.params,
         ownerName: values.ownerName,
         length: values.length,
         width: values.width,
         height: values.height,
-        document: downloadURL, // Store the URL of the uploaded document
+        document: publicUrl,
         location: currentLocation,
       };
 
-      const spacesCollection = collection(fireStoreDb, "spaces");
+      const { error: insertError } = await supabase
+        .from('spaces')
+        .insert([spaceData]);
 
-      const docRef = await addDoc(spacesCollection, spaceData);
+      if (insertError) throw insertError;
 
-      const userRef = doc(fireStoreDb, "users", route.params);
+      const { data: userData, error: getUserError } = await supabase
+        .from('users')
+        .select('registerType')
+        .eq('id', route.params)
+        .single();
 
-      // Fetch the current user document
-      const userDoc = await getDoc(userRef);
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-
-        // Update the registerType object while preserving existing fields
+      if (!getUserError && userData) {
         const updatedRegisterType = {
           ...userData.registerType,
-          spaceprovider: true, // Update spaceprovider field
+          spaceprovider: true,
         };
 
-        await updateDoc(userRef, {
-          isCompleteProfile: true,
-          registerType: updatedRegisterType,
-        });
+        await supabase
+          .from('users')
+          .update({
+            isCompleteProfile: true,
+            registerType: updatedRegisterType,
+          })
+          .eq('id', route.params);
       }
 
       setIsLoading(false);

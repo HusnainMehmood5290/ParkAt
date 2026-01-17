@@ -12,16 +12,7 @@ import Spinner from "../components/Spinner";
 import { Formik } from "formik";
 import YupRegisterSchema from "../constraints/YupRegisterSchema";
 import ErrorText from "../components/ErrorText";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { fireStoreDb, firebaseAuth } from "../configs/firebaseConfig";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  setDoc,
-} from "firebase/firestore";
+import { supabase } from "../configs/supabaseConfig";
 
 const Register = () => {
   const navigation = useNavigation();
@@ -42,14 +33,15 @@ const Register = () => {
     try {
       setIsLoading(true);
 
-      const users = await createUserWithEmailAndPassword(
-        firebaseAuth,
-        values.email,
-        values.password
-      );
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+      });
+
+      if (authError) throw authError;
 
       const userData = {
-        _id: users.user.uid,
+        id: authData.user.id,
         firstName: values.firstName,
         lastName: values.lastName,
         email: values.email,
@@ -59,22 +51,26 @@ const Register = () => {
         isCompleteProfile: false,
       };
 
-      const docRef = doc(fireStoreDb, "users", users.user.uid);
-      await setDoc(docRef, userData);
+      const { error: dbError } = await supabase
+        .from('users')
+        .insert([userData]);
 
-      navigateBasedOnRole(userData._id);
+      if (dbError) throw dbError;
+
+      navigateBasedOnRole(userData.id);
     } catch (error) {
-      if (error.message == "Firebase: Error (auth/email-already-in-use).") {
-        const usersRef = collection(fireStoreDb, "users");
-        const q = query(usersRef, where("email", "==", values.email));
-        const querySnapshot = await getDocs(q);
+      if (error.message?.includes("already registered")) {
+        const { data, error: queryError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', values.email)
+          .single();
 
-        if (!querySnapshot.empty) {
-          const userDoc = querySnapshot.docs[0];
-          const userData = userDoc.data();
-          navigateBasedOnRole(userData._id);
+        if (!queryError && data) {
+          navigateBasedOnRole(data.id);
         }
       }
+      setIsLoading(false);
     }
   };
 

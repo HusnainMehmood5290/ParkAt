@@ -1,10 +1,8 @@
 import React, { useState } from "react";
 import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import IconInputField from "../components/IconInputField";
-import { fireStoreDb, firebaseAuth } from "../configs/firebaseConfig";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { supabase } from "../configs/supabaseConfig";
 import Spinner from "../components/Spinner";
-import { doc, getDoc } from "firebase/firestore";
 import { useNavigation } from "@react-navigation/native";
 import ErrorText from "../components/ErrorText";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -19,46 +17,51 @@ const Login = () => {
   const handleLogin = async () => {
     try {
       setIsLoading(true);
-      const userCreds = await signInWithEmailAndPassword(
-        firebaseAuth,
-        email,
-        password
-      );
-      const user = await getDoc(doc(fireStoreDb, "users", userCreds.user.uid));
 
-      if (user.exists()) {
-        const userData = user.data();
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) throw authError;
+
+      const { data: userData, error: dbError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (dbError) throw dbError;
+
+      if (userData) {
         setUserData(userData);
         setIsLoading(false);
         setEmailError(false);
 
         if (userData.isCompleteProfile) {
-          const isVehicleOwner = userData.registerType.vehicleowner;
-          const isSpaceProvider = userData.registerType.spaceprovider;
+          const isVehicleOwner = userData.registerType?.vehicleowner || false;
+          const isSpaceProvider = userData.registerType?.spaceprovider || false;
 
           await AsyncStorage.multiSet([
             ["email", userData.email],
-            ["cnic", userData.cnic],
-            ["_id", userData._id],
+            ["cnic", userData.cnic || ""],
+            ["_id", userData.id],
             ["isVehicleOwner", JSON.stringify(isVehicleOwner)],
             ["isSpaceProvider", JSON.stringify(isSpaceProvider)],
           ]);
         }
 
         let routeName = "Registration";
-        if (userData.registerType.vehicleowner) {
+        if (userData.registerType?.vehicleowner) {
           routeName = "HomeVo";
-        } else if (userData.registerType.spaceprovider) {
+        } else if (userData.registerType?.spaceprovider) {
           routeName = "HomeSp";
         }
         navigation.navigate(routeName);
       }
     } catch (error) {
       setIsLoading(false);
-      setEmailError(
-        error.message.includes("auth/invalid-credential") ||
-          error.message.includes("auth/invalid-email")
-      );
+      setEmailError(true);
     }
   };
 
